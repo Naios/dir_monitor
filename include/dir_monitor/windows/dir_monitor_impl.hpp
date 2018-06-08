@@ -7,8 +7,8 @@
 #pragma once
 
 #include <boost/noncopyable.hpp>
-#include <boost/ptr_container/ptr_unordered_map.hpp>
-#include <boost/thread.hpp>
+#include <unordered_map>
+#include <thread>
 #include <string>
 #include <deque>
 #include <windows.h>
@@ -44,7 +44,7 @@ public:
 
     void add_directory(std::string dirname, HANDLE handle)
     {
-        dirs_.insert(dirname, new windows_handle(handle));
+        dirs_.insert(std::make_pair(dirname, new windows_handle(handle)));
     }
 
     void remove_directory(const std::string &dirname)
@@ -54,14 +54,14 @@ public:
 
     void destroy()
     {
-        boost::unique_lock<boost::mutex> lock(events_mutex_);
+        std::unique_lock<std::mutex> lock(events_mutex_);
         run_ = false;
         events_cond_.notify_all();
     }
 
     dir_monitor_event popfront_event(boost::system::error_code &ec)
     {
-        boost::unique_lock<boost::mutex> lock(events_mutex_);
+        std::unique_lock<std::mutex> lock(events_mutex_);
         events_cond_.wait(lock, [&] { return !(run_ && events_.empty()); });
 
         dir_monitor_event ev;
@@ -79,7 +79,7 @@ public:
 
     void pushback_event(dir_monitor_event ev)
     {
-        boost::unique_lock<boost::mutex> lock(events_mutex_);
+        std::unique_lock<std::mutex> lock(events_mutex_);
         if (run_)
         {
             events_.push_back(ev);
@@ -88,9 +88,9 @@ public:
     }
 
 private:
-    boost::ptr_unordered_map<std::string, windows_handle> dirs_;
-    boost::mutex events_mutex_;
-    boost::condition_variable events_cond_;
+    std::unordered_map<std::string, windows_handle> dirs_;
+    std::mutex events_mutex_;
+    std::condition_variable events_cond_;
     bool run_;
     std::deque<dir_monitor_event> events_;
 };

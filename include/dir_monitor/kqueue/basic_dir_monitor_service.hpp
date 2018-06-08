@@ -10,7 +10,7 @@
 
 #include "dir_monitor_impl.hpp"
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
+#include <thread>
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/weak_ptr.hpp>
@@ -156,7 +156,7 @@ private:
 
     boost::asio::io_service async_monitor_io_service_;
     boost::scoped_ptr<boost::asio::io_service::work> async_monitor_work_;
-    boost::thread async_monitor_thread_;
+    std::thread async_monitor_thread_;
 };
 
 template <typename DirMonitorImplementation>

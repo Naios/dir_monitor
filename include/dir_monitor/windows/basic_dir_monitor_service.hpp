@@ -8,7 +8,8 @@
 
 #include "dir_monitor_impl.hpp"
 #include <boost/asio.hpp>
-#include <boost/thread.hpp>
+#include <thread>
+#include <mutex>
 #include <boost/bind.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/system/error_code.hpp>
@@ -28,7 +29,7 @@ namespace helper {
             if (condition)
             {
                 DWORD last_error = GetLastError();
-                boost::system::system_error e(boost::system::error_code(last_error, boost::system::get_system_category()), msg);
+                boost::system::system_error e(boost::system::error_code(last_error, boost::system::system_category()), msg);
                 boost::throw_exception(e);
             }
         }
@@ -166,20 +167,20 @@ public:
     protected:
         void PostAndWait(const boost::system::error_code ec, const dir_monitor_event& ev) const
         {
-            boost::mutex post_mutex;
-            boost::condition_variable post_conditional_variable;
+            std::mutex post_mutex;
+            std::condition_variable post_conditional_variable;
             bool post_cancel = false;
 
             this->io_service_.post(
                 [&]
                 {
                     handler_(ec, ev);
-                    boost::unique_lock<boost::mutex> lock(post_mutex);
+                    std::unique_lock<std::mutex> lock(post_mutex);
                     post_cancel = true;
                     post_conditional_variable.notify_one();
                 }
             );
-            boost::unique_lock<boost::mutex> lock(post_mutex);
+            std::unique_lock<std::mutex> lock(post_mutex);
             while (!post_cancel)
                 post_conditional_variable.wait(lock);
         }
@@ -303,7 +304,7 @@ private:
     bool running()
     {
         // Access to run_ is sychronized with stop_work_thread().
-        boost::mutex::scoped_lock lock(work_thread_mutex_);
+        std::lock_guard<std::mutex> lock(work_thread_mutex_);
         return run_;
     }
 
@@ -316,7 +317,7 @@ private:
     void stop_work_thread()
     {
         // Access to run_ is sychronized with running().
-        boost::mutex::scoped_lock lock(work_thread_mutex_);
+        std::lock_guard<std::mutex> lock(work_thread_mutex_);
         run_ = false;
 
         // By setting the third paramter to 0 GetQueuedCompletionStatus() will return with a null pointer as the completion key.
@@ -326,12 +327,12 @@ private:
 
     std::exception_ptr last_work_thread_exception_ptr_;
     HANDLE iocp_;
-    boost::mutex work_thread_mutex_;
+    std::mutex work_thread_mutex_;
     bool run_;
-    boost::thread work_thread_;
+    std::thread work_thread_;
     boost::asio::io_service async_monitor_io_service_;
     std::unique_ptr<boost::asio::io_service::work> async_monitor_work_;
-    boost::thread async_monitor_thread_;
+    std::thread async_monitor_thread_;
 };
 
 template <typename DirMonitorImplementation>
